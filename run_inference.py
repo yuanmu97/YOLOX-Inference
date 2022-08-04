@@ -1,10 +1,7 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 from yolox import create_yolox_model, load_image
-import numpy as np
 import torch
-
-import cv2
 
 conf_threshold = 0.25
 nms_threshold = 0.45
@@ -23,5 +20,3 @@ with torch.no_grad():
     scores = outputs[:, 4] * outputs[:, 5]
     for bbox, cls_idx, score in zip(bboxes, cls_idxes, scores):
         print(f"class={cls_idx}, conf={score}, bbox={bbox}")
-    
-    # print(outputs.cpu().numpy())
