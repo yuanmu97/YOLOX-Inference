@@ -1,6 +1,8 @@
 from torch import nn
 import torch
 import torchvision
+import cv2
+import numpy as np 
 
 
 class BaseConv(nn.Module):
@@ -573,6 +575,32 @@ class YOLOX(nn.Module):
         return outputs
 
 
+def preproc(img, input_size, swap=(2, 0, 1)):
+    if len(img.shape) == 3:
+        padded_img = np.ones((input_size[0], input_size[1], 3), dtype=np.uint8) * 114
+    else:
+        padded_img = np.ones(input_size, dtype=np.uint8) * 114
+
+    r = min(input_size[0] / img.shape[0], input_size[1] / img.shape[1])
+    resized_img = cv2.resize(
+        img,
+        (int(img.shape[1] * r), int(img.shape[0] * r)),
+        interpolation=cv2.INTER_LINEAR,
+    ).astype(np.uint8)
+    padded_img[: int(img.shape[0] * r), : int(img.shape[1] * r)] = resized_img
+
+    padded_img = padded_img.transpose(swap)
+    padded_img = np.ascontiguousarray(padded_img, dtype=np.float32)
+    return padded_img, r
+
+
+def load_image(img_pth, tsize=640):
+    img = cv2.imread(img_pth)
+    img, ratio = preproc(img, (tsize, tsize))
+    img = torch.from_numpy(img).unsqueeze(0).float().cuda()
+    return img, ratio
+
+
 def create_yolox_model(name, ckpt_pth, conf_threshold, nms_threshold) -> nn.Module:
     assert(name in ["yolox-l", "yolox-m", "yolox-s", "yolox-x"])
 
@@ -602,7 +630,6 @@ def create_yolox_model(name, ckpt_pth, conf_threshold, nms_threshold) -> nn.Modu
     head = YOLOXHead(80, width=width)
     model = YOLOX(backbone, head, conf_threshold, nms_threshold)
 
-    # NOTE necessary init
     def init_yolo(M):
         for m in M.modules():
             if isinstance(m, nn.BatchNorm2d):
